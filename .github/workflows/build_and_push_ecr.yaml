@@ -1,0 +1,38 @@
+name: Build and Push
+
+on:
+  push:
+    branches:
+      - "feat/cicd"
+  workflow_dispatch:
+    inputs:
+      build_n_push_ecr:
+        description: "Build and Push To ECR"
+        required: true
+        default: "true"
+        type: choice
+        options:
+          - true
+          - false
+
+env:
+  LOCAL_IMAGE_TAG: "docreader:latest"
+  AWS_ACCOUNT_ID: "637423456158"
+  AWS_REGION: "us-west-2"
+  ECR_REPO_NAME: "tests"
+
+jobs:
+  build-test-push:
+    runs-on: ubuntu-22.04
+    if: ${{ inputs.unit_tests == 'true' }}
+    strategy:
+      matrix:
+        python-version: [3.10]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set envs
+        run: |
+          export TAG="commit-$(echo $GITHUB_SHA | cut -c 1-7)"
+          echo "REMOTE_IMAGE_TAG=${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO_NAME }}:$TAG" >> $GITHUB_ENV
