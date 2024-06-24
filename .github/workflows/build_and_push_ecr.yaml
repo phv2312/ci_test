@@ -17,7 +17,7 @@ on:
 
 env:
   LOCAL_IMAGE_TAG: "docreader:latest"
-  AWS_ACCOUNT_ID: "637423456158"
+  AWS_ACCOUNT_ID: "339712924339"
   AWS_REGION: "us-west-2"
   ECR_REPO_NAME: "tests"
 
@@ -36,3 +36,31 @@ jobs:
         run: |
           export TAG="commit-$(echo $GITHUB_SHA | cut -c 1-7)"
           echo "REMOTE_IMAGE_TAG=${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO_NAME }}:$TAG" >> $GITHUB_ENV
+
+#      - name: Setup ssh-agent
+#        uses: webfactory/ssh-agent@v0.9.0
+#        with:
+#          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+#          log-public-key: false
+
+      - name: Verify AWS credentials
+        run: |
+          pip install awscli
+          aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY }}
+          aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_KEY }}
+          aws configure set default.region ${{ env.AWS_REGION }}
+          aws sts get-caller-identity
+
+      - name: Docker build
+        run: |
+          docker build -f Dockerfile -t ${{ env.LOCAL_IMAGE_TAG }} .
+
+      - name: Unit test dummy
+        run: |
+          docker run ${{ env.LOCAL_IMAGE_TAG }} bash -c "echo 'SUCCESS'"
+
+      - name: Push to ECR
+        run: |
+          aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
+          docker tag ${{ env.LOCAL_IMAGE_TAG }} ${{ env.REMOTE_IMAGE_TAG }}
+          docker push ${{ env.REMOTE_IMAGE_TAG }}
